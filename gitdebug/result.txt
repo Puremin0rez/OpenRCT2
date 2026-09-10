@@ -1,0 +1,63 @@
+=== identity / environment ===
+whoami=root uid=0 gid=0
+HOME=/github/home
+PWD=/__w/OpenRCT2/OpenRCT2
+GITHUB_WORKSPACE=/__w/OpenRCT2/OpenRCT2
+
+=== ownership of workspace and .git ===
+1001:1001 UNKNOWN:UNKNOWN  /__w/OpenRCT2/OpenRCT2
+0:0 root:root  /__w/OpenRCT2/OpenRCT2/.git
+
+=== git version / config ===
+git version 2.51.0
+global safe.directory: []
+system safe.directory: []
+ls: cannot access '/root/.gitconfig': No such file or directory
+ls: cannot access '/github/home/.gitconfig': No such file or directory
+ls: cannot access '/etc/gitconfig': No such file or directory
+
+=== THE THREE COMMANDS FROM CMakeLists.txt:185-210 ===
+describe    rc=128 out=[fatal: detected dubious ownership in repository at '/__w/OpenRCT2/OpenRCT2'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /__w/OpenRCT2/OpenRCT2]
+abbrev-ref  rc=128 out=[fatal: detected dubious ownership in repository at '/__w/OpenRCT2/OpenRCT2'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /__w/OpenRCT2/OpenRCT2]
+short-sha   rc=128 out=[fatal: detected dubious ownership in repository at '/__w/OpenRCT2/OpenRCT2'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /__w/OpenRCT2/OpenRCT2]
+
+=== same three via CMake execute_process (the real path) ===
+-- VERSION_TAG=[] rc=0 err=[fatal: detected dubious ownership in repository at '/__w/OpenRCT2/OpenRCT2'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /__w/OpenRCT2/OpenRCT2
+]
+-- BRANCH=[] rc=128 err=[fatal: detected dubious ownership in repository at '/__w/OpenRCT2/OpenRCT2'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /__w/OpenRCT2/OpenRCT2
+]
+-- SHA1_SHORT=[] rc=128 err=[fatal: detected dubious ownership in repository at '/__w/OpenRCT2/OpenRCT2'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /__w/OpenRCT2/OpenRCT2
+]
+
+=== what scripts/setenv computes (the env-var path) ===
+[0;36mSetting up environment for OpenRCT2...[0m
+----------------------------------------------
+OPENRCT2_BUILD_SERVER:  
+OPENRCT2_TAG:           
+OPENRCT2_BRANCH:        gitdebug
+OPENRCT2_VERSION:       
+OPENRCT2_VERSION_EXTRA: gitdebug-ea78308302
+OPENRCT2_BUILD:         
+OPENRCT2_DESCRIBE:      
+OPENRCT2_PUSH:          
+OPENRCT2_SHA1:          ea7830830224cef926a1fafb93a25821500410e7
+OPENRCT2_SHA1_SHORT:    ea78308302
+----------------------------------------------
