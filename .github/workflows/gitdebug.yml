@@ -8,66 +8,91 @@ permissions:
   contents: write
 
 jobs:
-  probe:
-    name: probe git in the resolute build container
+  build:
+    name: build (${{ matrix.label }})
     runs-on: ubuntu-latest
     container: ghcr.io/openrct2/openrct2-build:26-resolute
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: without-fix
+            apply_fix: 'no'
+          - label: with-fix
+            apply_fix: 'yes'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Probe
+      # THE FIX under test - identical to what ci.yml:142 already does for the
+      # check-code-formatting job.
+      - name: Apply safe.directory fix
+        if: matrix.apply_fix == 'yes'
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Show what CMake will resolve
         shell: bash
         run: |
           set +e
-          mkdir -p gitdebug
-          {
-            echo "=== identity / environment ==="
-            echo "whoami=$(whoami 2>&1) uid=$(id -u) gid=$(id -g)"
-            echo "HOME=$HOME"
-            echo "PWD=$PWD"
-            echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
-            echo
-            echo "=== ownership of workspace and .git ==="
-            stat -c '%u:%g %U:%G  %n' "$PWD" "$PWD/.git"
-            echo
-            echo "=== git version / config ==="
-            git --version
-            echo "global safe.directory: [$(git config --global --get-all safe.directory)]"
-            echo "system safe.directory: [$(git config --system --get-all safe.directory)]"
-            ls -l /root/.gitconfig /github/home/.gitconfig /etc/gitconfig 2>&1
-            echo
-            echo "=== THE THREE COMMANDS FROM CMakeLists.txt:185-210 ==="
-            o=$(git describe HEAD 2>&1);            echo "describe    rc=$? out=[$o]"
-            o=$(git rev-parse --abbrev-ref HEAD 2>&1); echo "abbrev-ref  rc=$? out=[$o]"
-            o=$(git rev-parse --short HEAD 2>&1);      echo "short-sha   rc=$? out=[$o]"
-            echo
-            echo "=== same three via CMake execute_process (the real path) ==="
-            printf '%s\n' \
-              'execute_process(COMMAND git describe HEAD COMMAND sed -E "s/-g.+$//" WORKING_DIRECTORY ${RD} OUTPUT_VARIABLE T OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE RT ERROR_VARIABLE ET)' \
-              'execute_process(COMMAND git rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${RD} OUTPUT_VARIABLE B OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE RB ERROR_VARIABLE EB)' \
-              'execute_process(COMMAND git rev-parse --short HEAD WORKING_DIRECTORY ${RD} OUTPUT_VARIABLE S OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE RS ERROR_VARIABLE ES)' \
-              'message(STATUS "VERSION_TAG=[${T}] rc=${RT} err=[${ET}]")' \
-              'message(STATUS "BRANCH=[${B}] rc=${RB} err=[${EB}]")' \
-              'message(STATUS "SHA1_SHORT=[${S}] rc=${RS} err=[${ES}]")' \
-              > /tmp/probe.cmake
-            cmake -DRD="$PWD" -P /tmp/probe.cmake 2>&1
-            echo
-            echo "=== what scripts/setenv computes (the env-var path) ==="
-            ( . scripts/setenv ) 2>&1
-          } > gitdebug/result.txt 2>&1
-          cat gitdebug/result.txt
+          echo "label=${{ matrix.label }}"
+          o=$(git describe HEAD 2>&1);               echo "describe    rc=$? out=[$o]"
+          o=$(git rev-parse --abbrev-ref HEAD 2>&1); echo "abbrev-ref  rc=$? out=[$o]"
+          o=$(git rev-parse --short HEAD 2>&1);      echo "short-sha   rc=$? out=[$o]"
           exit 0
 
-      - name: Commit the result back
+      - name: Get pre-reqs
+        run: . scripts/setenv && get-discord-rpc
+
+      - name: Build OpenRCT2
+        run: |
+          . scripts/setenv -q && build -DWITH_TESTS=off -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON -DPORTABLE=ON \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=on -DCMAKE_CXX_FLAGS="-g1 -gz"
+
+      - name: Verify the built binary
         if: always()
         shell: bash
         run: |
           set +e
-          git config --global --add safe.directory "$PWD"
-          git config user.name  "git-debug bot"
-          git config user.email "noreply@example.com"
-          git add -f gitdebug/result.txt
-          git commit -m "git-debug: probe output"
-          git push origin HEAD:gitdebug
+          mkdir -p gitdebug
+          out="gitdebug/build-${{ matrix.label }}.txt"
+          {
+            echo "### label: ${{ matrix.label }}   apply_fix=${{ matrix.apply_fix }}"
+            echo "### commit under test: $(cat .git/HEAD 2>/dev/null); GITHUB_SHA=$GITHUB_SHA"
+            echo
+            BIN=$(find . -type f -name 'openrct2' -perm -u+x 2>/dev/null | head -1)
+            LIB=$(find . -type f -name 'libopenrct2.so*' 2>/dev/null | head -1)
+            echo "binary: $BIN"
+            echo "lib:    $LIB"
+            echo
+            echo "--- version string embedded in the binary ---"
+            { strings -n 6 "$BIN"; strings -n 6 "$LIB"; } 2>/dev/null \
+              | grep -E "^OpenRCT2, v" | sort -u
+            echo
+            echo "--- runtime --version ---"
+            "$BIN" --version 2>&1 | head -3
+            echo
+            echo "--- does it contain the short sha? ---"
+            SHORT=$(echo "$GITHUB_SHA" | cut -c1-7)
+            n=$( { strings -n 4 "$BIN"; strings -n 4 "$LIB"; } 2>/dev/null | grep -cF "$SHORT")
+            echo "short sha ($SHORT) hits: $n"
+          } > "$out" 2>&1
+          cat "$out"
+          exit 0
+
+      - name: Commit result
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "git-debug bot"; git config user.email "noreply@example.com"
+          for i in 1 2 3 4 5; do
+            git fetch origin gitdebug && git stash -u -- gitdebug 2>/dev/null
+            git checkout gitdebug 2>/dev/null; git reset --hard origin/gitdebug
+            git stash pop 2>/dev/null
+            git add -f gitdebug/ && git commit -m "git-debug: ${{ matrix.label }} build result"
+            git push origin HEAD:gitdebug && break
+            sleep $((RANDOM % 10 + 3))
+          done
           exit 0
