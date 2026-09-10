@@ -1,0 +1,48 @@
+### label=with-fix apply_fix=yes
+### GITHUB_SHA=a80756a5000ab9e364f3ec1f56fa41dd15534304
+
+--- git as CMake will invoke it ---
+describe    rc=128 out=[fatal: No names found, cannot describe anything.]
+abbrev-ref  rc=0 out=[gitdebug]
+short-sha   rc=0 out=[a80756a]
+
+--- building (discord-rpc disabled; irrelevant to this test) ---
+build rc=0
+--- last 25 lines of build log ---
+-- Installing: install/usr/share/doc/openrct2/changelog.txt
+-- Installing: install/usr/share/doc/openrct2/readme.txt
+-- Installing: install/usr/share/doc/openrct2/contributors.md
+-- Installing: install/usr/share/doc/openrct2/PRIVACY.md
+-- Installing: install/usr/share/doc/openrct2/licence.txt
+-- Installing: install/usr/share/doc/openrct2/scripting.md
+-- Installing: install/usr/share/doc/openrct2/openrct2.d.ts
+-- Installing: install/usr/share/metainfo/io.openrct2.openrct2.appdata.xml
+-- Installing: install/usr/share/icons/hicolor/16x16/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/24x24/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/32x32/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/48x48/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/64x64/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/96x96/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/128x128/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/256x256/apps/openrct2.png
+-- Installing: install/usr/share/icons/hicolor/scalable/apps/openrct2.svg
+-- Installing: install/usr/share/applications/io.openrct2.openrct2.desktop
+-- Installing: install/usr/share/applications/io.openrct2.savegame.desktop
+-- Installing: install/usr/share/applications/io.openrct2.scenario.desktop
+-- Installing: install/usr/share/applications/io.openrct2.uri.desktop
+-- Installing: install/usr/share/mime/packages/openrct2.xml
+-- Installing: install/usr/share/man/man6
+-- Installing: install/usr/share/man/man6/openrct2-cli.6
+-- Installing: install/usr/share/man/man6/openrct2.6
+
+binary=[./bin/install/usr/bin/openrct2] lib=[./bin/install/usr/bin/libopenrct2.so]
+
+--- embedded version string ---
+OpenRCT2, v0.5.5 (a80756a on gitdebug)
+
+--- runtime --version ---
+OpenRCT2, v0.5.5 (a80756a on gitdebug)
+Linux (x86-64)
+Network version: 0.5.5-0
+
+short-sha (a80756a) occurrences in binary: 1
