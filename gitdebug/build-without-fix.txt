@@ -1,0 +1,13 @@
+### label: without-fix   apply_fix=no
+### commit under test: ref: refs/heads/gitdebug; GITHUB_SHA=22ec460a67c6b30cac8c1e5f04b52644809a8431
+
+binary: 
+lib:    
+
+--- version string embedded in the binary ---
+
+--- runtime --version ---
+/__w/_temp/81d5e1fa-14f1-47e2-a90e-ce130bf934e9.sh: line 18: : command not found
+
+--- does it contain the short sha? ---
+short sha (22ec460) hits: 0
