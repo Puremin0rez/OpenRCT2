@@ -1,31 +1,6 @@
 name: CI
 on:
-  push:
-    paths-ignore:
-      - '.editorconfig'
-      - '.gitattributes'
-      - '.github/*_TEMPLATE/**'
-      - '.github/workflows/localisation.yml'
-      - '.gitignore'
-      - '.vscode/**'
-  pull_request:
-    paths-ignore:
-      - '.editorconfig'
-      - '.gitattributes'
-      - '.github/*_TEMPLATE/**'
-      - '.github/workflows/localisation.yml'
-      - '.gitignore'
-      - '.vscode/**'
   workflow_dispatch:
-    inputs:
-      sign:
-        description: Sign binaries
-        type: choice
-        options:
-          - 'no'
-          - test-signing
-          - release-signing
-        default: test-signing
 
 defaults:
   run:
