@@ -7,6 +7,11 @@ on:
 permissions:
   contents: write
 
+# Mirrors the workflow-level env of the real ci.yml
+env:
+  OPENRCT2_BUILD_SERVER: GitHub
+  OPENRCT2_VERSION: 0.5.5
+
 jobs:
   build:
     name: build (${{ matrix.label }})
@@ -24,75 +29,62 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # THE FIX under test - identical to what ci.yml:142 already does for the
-      # check-code-formatting job.
+      # THE FIX UNDER TEST - byte-identical to ci.yml:142's existing step
       - name: Apply safe.directory fix
         if: matrix.apply_fix == 'yes'
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Show what CMake will resolve
-        shell: bash
-        run: |
-          set +e
-          echo "label=${{ matrix.label }}"
-          o=$(git describe HEAD 2>&1);               echo "describe    rc=$? out=[$o]"
-          o=$(git rev-parse --abbrev-ref HEAD 2>&1); echo "abbrev-ref  rc=$? out=[$o]"
-          o=$(git rev-parse --short HEAD 2>&1);      echo "short-sha   rc=$? out=[$o]"
-          exit 0
-
-      - name: Get pre-reqs
-        run: . scripts/setenv && get-discord-rpc
-
-      - name: Build OpenRCT2
-        run: |
-          . scripts/setenv -q && build -DWITH_TESTS=off -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=ON -DPORTABLE=ON \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=on -DCMAKE_CXX_FLAGS="-g1 -gz"
-
-      - name: Verify the built binary
-        if: always()
+      - name: Build and verify
         shell: bash
         run: |
           set +e
           mkdir -p gitdebug
-          out="gitdebug/build-${{ matrix.label }}.txt"
+          out="gitdebug/result-${{ matrix.label }}.txt"
           {
-            echo "### label: ${{ matrix.label }}   apply_fix=${{ matrix.apply_fix }}"
-            echo "### commit under test: $(cat .git/HEAD 2>/dev/null); GITHUB_SHA=$GITHUB_SHA"
+            echo "### label=${{ matrix.label }} apply_fix=${{ matrix.apply_fix }}"
+            echo "### GITHUB_SHA=$GITHUB_SHA"
+            echo
+            echo "--- git as CMake will invoke it ---"
+            o=$(git describe HEAD 2>&1);               echo "describe    rc=$? out=[$o]"
+            o=$(git rev-parse --abbrev-ref HEAD 2>&1); echo "abbrev-ref  rc=$? out=[$o]"
+            o=$(git rev-parse --short HEAD 2>&1);      echo "short-sha   rc=$? out=[$o]"
+            echo
+            echo "--- building (discord-rpc disabled; irrelevant to this test) ---"
+            ( . scripts/setenv -q; set +e; \
+              build -DWITH_TESTS=off -DDISABLE_DISCORD_RPC=ON -DCMAKE_BUILD_TYPE=Release \
+                    -DBUILD_SHARED_LIBS=ON -DPORTABLE=ON \
+                    -DCMAKE_POSITION_INDEPENDENT_CODE=on -DCMAKE_CXX_FLAGS="-g1 -gz" ) \
+              > /tmp/build.log 2>&1
+            echo "build rc=$?"
+            echo "--- last 25 lines of build log ---"
+            tail -25 /tmp/build.log
             echo
             BIN=$(find . -type f -name 'openrct2' -perm -u+x 2>/dev/null | head -1)
             LIB=$(find . -type f -name 'libopenrct2.so*' 2>/dev/null | head -1)
-            echo "binary: $BIN"
-            echo "lib:    $LIB"
+            echo "binary=[$BIN] lib=[$LIB]"
             echo
-            echo "--- version string embedded in the binary ---"
-            { strings -n 6 "$BIN"; strings -n 6 "$LIB"; } 2>/dev/null \
+            echo "--- embedded version string ---"
+            { strings -n 6 "$BIN" 2>/dev/null; strings -n 6 "$LIB" 2>/dev/null; } \
               | grep -E "^OpenRCT2, v" | sort -u
             echo
             echo "--- runtime --version ---"
-            "$BIN" --version 2>&1 | head -3
+            [ -n "$BIN" ] && "$BIN" --version 2>&1 | head -3
             echo
-            echo "--- does it contain the short sha? ---"
             SHORT=$(echo "$GITHUB_SHA" | cut -c1-7)
-            n=$( { strings -n 4 "$BIN"; strings -n 4 "$LIB"; } 2>/dev/null | grep -cF "$SHORT")
-            echo "short sha ($SHORT) hits: $n"
+            n=$( { strings -n 4 "$BIN" 2>/dev/null; strings -n 4 "$LIB" 2>/dev/null; } | grep -cF "$SHORT")
+            echo "short-sha ($SHORT) occurrences in binary: $n"
           } > "$out" 2>&1
           cat "$out"
           exit 0
 
-      - name: Commit result
+      - name: Publish result to its own branch
         if: always()
         shell: bash
         run: |
           set +e
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config user.name "git-debug bot"; git config user.email "noreply@example.com"
-          for i in 1 2 3 4 5; do
-            git fetch origin gitdebug && git stash -u -- gitdebug 2>/dev/null
-            git checkout gitdebug 2>/dev/null; git reset --hard origin/gitdebug
-            git stash pop 2>/dev/null
-            git add -f gitdebug/ && git commit -m "git-debug: ${{ matrix.label }} build result"
-            git push origin HEAD:gitdebug && break
-            sleep $((RANDOM % 10 + 3))
-          done
+          git add -f "gitdebug/result-${{ matrix.label }}.txt"
+          git commit -m "result: ${{ matrix.label }}"
+          git push -f origin HEAD:refs/heads/result-${{ matrix.label }}
           exit 0
